@@ -35,9 +35,10 @@ class Component {
 }
 
 class Tooltip extends Component {
-    constructor(closeNotifierFn) {
-        super('active-projects', true);
+    constructor(closeNotifierFn, text, hostElemetId) {
+        super(hostElemetId);
         this.closeNotifier = closeNotifierFn;
+        this.text = text;
         this.create();
     }
     closeTooltip = () => {
@@ -48,7 +49,27 @@ class Tooltip extends Component {
     create() {
         const tooltipEl = document.createElement('div');
         tooltipEl.className = 'card';
-        tooltipEl.textContent = 'hi';
+        const tooltipTemplate = document.getElementById('tooltip');
+        const tooltipBody = document.importNode(tooltipTemplate.content, true);
+        console.log(tooltipTemplate.content)
+        console.log(tooltipBody)
+
+        tooltipBody.querySelector('p').textContent = this.text;
+        tooltipEl.append(tooltipBody);
+
+        const hostElPosLeft = this.hostElement.offsetLeft;
+        const hostElPosTop = this.hostElement.offsetTop;
+        const hostElHeight = this.hostElement.clientHeight;
+        const parentElementScrolling = this.hostElement.parentElement.scrollTop;
+
+        const x = hostElPosLeft + 20;
+        const y = hostElPosTop + hostElHeight - parentElementScrolling -10;
+
+        tooltipEl.style.position = 'absolute';
+        tooltipEl.style.left = x + 'px';
+        tooltipEl.style.top = y + 'px';
+
+
         tooltipEl.addEventListener('click', this.closeTooltip);
         this.element = tooltipEl;
     }
@@ -61,13 +82,17 @@ class ProjectItem {
         this.updateProjectListsHandler = updateProjectListsFunction;
         this.connectMoreInfoBtn();
         this.connectSwitchBtn(type);
+        this.connectDrag();
     }
 
     showMoreInfoHandler() {
         if (this.hasActiveTooltip) {
             return;
         }
-        const tooltip = new Tooltip( () => {this.hasActiveTooltip = false;} );
+        const projectElement = document.getElementById(this.id);
+        const tooltipText = projectElement.dataset.extraInfo;
+        const tooltip = new Tooltip( () => 
+        {this.hasActiveTooltip = false;}, tooltipText, this.id );
         tooltip.attach();
         this.hasActiveTooltip = true;
     }
@@ -75,7 +100,7 @@ class ProjectItem {
     connectMoreInfoBtn() {
         const ProjectItemEl = document.getElementById(this.id);
         let moreInfoBtn = ProjectItemEl.querySelector('button:first-of-type');
-        moreInfoBtn.addEventListener('click', this.showMoreInfoHandler )
+        moreInfoBtn.addEventListener('click', this.showMoreInfoHandler.bind(this) )
     }
 
     connectSwitchBtn(type) {
@@ -91,6 +116,13 @@ class ProjectItem {
         this.connectSwitchBtn(type);
     }
 
+    connectDrag() {
+        document.getElementById(this.id).addEventListener('dragstart', event => {
+            event.dataTransfer.setData('text/plain', this.id);
+            event.dataTransfer.effectAllowed = 'move';
+        })
+    }
+
 }
 
 class ProjectList {
@@ -102,6 +134,38 @@ class ProjectList {
         for(const prjItem of prjItems) {
             this.projects.push(new ProjectItem(prjItem.id, this.switchProject.bind(this), this.type))
         }
+        this.connectDrappable();
+    }
+
+    connectDrappable() {
+        const list = document.querySelector(`#${this.type}-projects ul`);
+        list.addEventListener('dragenter', event => {
+
+            if( event.dataTransfer.types[0] === 'text/plain') {
+                event.preventDefault();
+                list.parentElement.classList.add('droppable')
+            }
+        })
+
+        list.addEventListener('dragover', event => {
+            event.preventDefault();
+        })
+
+        list.addEventListener('dragleave',event => {
+            if ( event.relatedTarget.closest(`#${this.type}-projects ul`) !== list ) {
+                list.parentElement.classList.remove('droppable')
+            }
+        })
+
+        list.addEventListener('drop', event => {
+            const prjId = event.dataTransfer.getData('text/plain');
+            if (this.projects.find( p => p.id === prjId)) {
+                return;
+            }
+            document.getElementById(prjId).querySelector('button:last-of-type').click();
+            event.preventDefault();
+            list.parentElement.classList.remove('droppable');
+        })
     }
 
     setSwitchHandler(switchHandlerFunction) {
@@ -128,6 +192,19 @@ class App {
         const finishedProjectsList = new ProjectList('finished');
         activeProjectsList.setSwitchHandler(finishedProjectsList.addProject.bind(finishedProjectsList));
         finishedProjectsList.setSwitchHandler(activeProjectsList.addProject.bind(activeProjectsList));
+
+        // const timerId = setTimeout(this.startAnalytics, 3000);
+        // document.getElementById('send-analytics').addEventListener('click', () => {
+        //     clearTimeout(timerId);
+        // })
+    }
+
+    static startAnalytics() {
+        const analyticsScript = document.createElement('script');
+        analyticsScript.src = 'assets/scripts/analytics.js';
+        analyticsScript.defer = true;
+        console.log(analyticsScript)
+        document.head.append(analyticsScript);
     }
 }
 

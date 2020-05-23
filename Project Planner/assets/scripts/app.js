@@ -140,7 +140,6 @@ class ProjectList {
     connectDrappable() {
         const list = document.querySelector(`#${this.type}-projects ul`);
         list.addEventListener('dragenter', event => {
-
             if( event.dataTransfer.types[0] === 'text/plain') {
                 event.preventDefault();
                 list.parentElement.classList.add('droppable')
@@ -148,7 +147,11 @@ class ProjectList {
         })
 
         list.addEventListener('dragover', event => {
-            event.preventDefault();
+            if( event.dataTransfer.types[0] === 'text/plain') {
+                event.preventDefault();
+                list.parentElement.classList.add('droppable')
+
+            } 
         })
 
         list.addEventListener('dragleave',event => {
